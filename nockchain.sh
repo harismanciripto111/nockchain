@@ -1,461 +1,834 @@
 #!/bin/bash
 
-# Warna untuk output
+# Colors
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'  # Warna ungu untuk ASCII art RAIMAN
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Direktori asal
-ORIGINAL_DIR=$(pwd)
-
-# Fungsi untuk menampilkan header
-print_header() {
-    clear
-    echo -e "${PURPLE}██████╗  █████╗ ██╗███╗   ███╗ █████╗ ███╗   ██╗${NC}"
-    echo -e "${PURPLE}██╔══██╗██╔══██╗██║████╗ ████║██╔══██╗████╗  ██║${NC}"
-    echo -e "${PURPLE}██████╔╝███████║██║██╔████╔██║███████║██╔██╗ ██║${NC}"
-    echo -e "${PURPLE}██╔══██╗██╔══██║██║██║╚██╔╝██║██╔══██║██║╚██╗██║${NC}"
-    echo -e "${PURPLE}██║  ██║██║  ██║██║██║ ╚═╝ ██║██║  ██║██║ ╚████║${NC}"
-    echo -e "${PURPLE}╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝${NC}"
-    echo -e "${BLUE}=================================${NC}"
-    echo -e "${YELLOW}     NOCKCHAIN INSTALLER       ${NC}"
-    echo -e "${BLUE}=================================${NC}"
-    echo -e "${GREEN}Mining starts: May 19th, 2025${NC}"
-    echo ""
+# ASCII Art
+show_ascii_art() {
+cat << "EOF"
+    _   __           __        __          _     
+   / | / /___  _____/ /_______/ /_  ____ _(_)___ 
+  /  |/ / __ \/ ___/ //_/ ___/ __ \/ __ `/ / __ \
+ / /|  / /_/ / /__/ ,< / /__/ / / / /_/ / / / / /
+/_/ |_/\____/\___/_/|_|\___/_/ /_/\__,_/_/_/ /_/ 
+                                                  
+  ZK-Proof of Work Mining Setup
+EOF
 }
 
-# Fungsi untuk menampilkan informasi
-show_info() {
-    print_header
-    echo -e "${YELLOW}INFORMASI NOCKCHAIN:${NC}"
-    echo -e "• Mining dimulai: 19 Mei 2025"
-    echo -e "• Total Supply: 2^32 nocks (sekitar 4,29 miliar)"
-    echo -e "• Fair launch: 100% $NOCK akan diberikan kepada Miners"
-    echo -e "• $NOCK digunakan untuk membayar blockspace di Nockchain"
-    echo -e "• Block time: 10 menit (seperti Bitcoin)"
-    echo ""
-    echo -e "${YELLOW}REKOMENDASI HARDWARE:${NC}"
-    echo -e "• RAM: 16 GB"
-    echo -e "• CPU: 6 cores atau lebih (lebih banyak core = lebih banyak hashrate)"
-    echo -e "• Disk: 50-200 GB SSD"
-    echo ""
-    echo -e "${YELLOW}CATATAN PENTING:${NC}"
-    echo -e "• Miner awalnya berbasis CPU dan nantinya akan beralih ke GPU dan ASIC"
-    echo -e "• Semakin awal mining, semakin BESAR rewards yang akan didapatkan"
-    echo ""
-    read -p "Tekan ENTER untuk kembali ke menu utama"
+# Check if Nockchain is already installed
+check_nockchain_installed() {
+  # Check if wallet and nockchain binaries exist
+  if [ -f "target/release/wallet" ] && [ -f "target/release/nockchain" ]; then
+    return 0  # Installed
+  else
+    return 1  # Not installed
+  fi
 }
 
-# Fungsi untuk mengecek dependensi
-check_dependencies() {
-    print_header
-    echo -e "${YELLOW}Mengecek dependensi sistem...${NC}"
+# Check dependencies
+# Check if the script is executed from the nockchain directory
+check_directory() {
+  if [ ! -f "Makefile" ] || [ ! -d ".git" ]; then
+    echo -e "${RED}Error: This script must be run from the nockchain repository root directory.${NC}"
+    echo -e "${YELLOW}Please navigate to the nockchain directory first.${NC}"
+    echo -e "${CYAN}Current directory: $(pwd)${NC}"
+    echo -e "${YELLOW}Would you like to:${NC}"
+    echo -e "${CYAN}1.${NC} Navigate to a different directory"
+    echo -e "${CYAN}2.${NC} Clone nockchain repository here"
+    echo -e "${CYAN}3.${NC} Return to main menu"
     
-    # Cek apakah git terinstall
-    if command -v git >/dev/null 2>&1; then
-        echo -e "✅ Git sudah terinstall"
-    else
-        echo -e "❌ Git belum terinstall"
-        return 1
-    fi
+    read -p "Enter your choice [1-3]: " choice
     
-    # Cek apakah rust terinstall
-    if command -v rustc >/dev/null 2>&1; then
-        echo -e "✅ Rust sudah terinstall"
-    else
-        echo -e "❌ Rust belum terinstall"
-        return 1
-    fi
-    
-    # Cek apakah docker terinstall (opsional untuk Mainnet)
-    if command -v docker >/dev/null 2>&1; then
-        echo -e "✅ Docker sudah terinstall"
-    else
-        echo -e "⚠️ Docker belum terinstall (opsional untuk Mainnet)"
-    fi
-    
-    return 0
-}
-
-# Fungsi untuk menginstall dependensi
-install_dependencies() {
-    print_header
-    echo -e "${YELLOW}Menginstall dependensi...${NC}"
-    
-    echo -e "${GREEN}Step 1: Update Packages${NC}"
-    echo -e "Menjalankan: sudo apt-get update && sudo apt-get upgrade -y"
-    sudo apt-get update && sudo apt-get upgrade -y
-    
-    echo -e "\n${GREEN}Step 2: Install Packages${NC}"
-    echo -e "Menjalankan: sudo apt install curl iptables build-essential git wget..."
-    sudo apt install curl iptables build-essential git wget lz4 jq make gcc nano automake autoconf tmux htop nvme-cli libgbm1 pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev -y
-    
-    echo -e "\n${GREEN}Step 3: Install Rust${NC}"
-    echo -e "Menjalankan: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    
-    # Source Rust environment setelah installasi
-    echo -e "\n${GREEN}Sourcing Rust environment...${NC}"
-    source "$HOME/.cargo/env"
-    echo -e "Rust is installed now. Great! Rust environment has been sourced."
-    echo -e "Paths have been configured. You can verify with 'rustc --version'"
-    
-    echo -e "\n${GREEN}Step 4: Install Docker (Opsional untuk Mainnet)${NC}"
-    read -p "Apakah Anda ingin menginstall Docker? (y/n): " install_docker
-    if [[ "$install_docker" == "y" || "$install_docker" == "Y" ]]; then
-        echo -e "Menginstall Docker..."
-        sudo apt update -y && sudo apt upgrade -y
-        for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done
-
-        sudo apt-get update
-        sudo apt-get install -y ca-certificates curl gnupg
-        sudo install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-        echo \
-          "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-        sudo apt update -y && sudo apt upgrade -y
-
-        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-        # Test Docker
-        echo -e "Testing Docker..."
-        sudo docker run hello-world
-
-        sudo systemctl enable docker
-        sudo systemctl restart docker
-    fi
-    
-    echo -e "\n${GREEN}Semua dependensi berhasil diinstall!${NC}"
-    read -p "Tekan ENTER untuk kembali ke menu utama"
-}
-
-# Fungsi untuk menginstall Nockchain
-install_nockchain() {
-    print_header
-    echo -e "${YELLOW}Memulai installasi Nockchain...${NC}"
-    
-    # Cek apakah dependensi sudah terpenuhi
-    if ! check_dependencies; then
-        echo -e "${RED}Beberapa dependensi belum terinstall. Install dependensi terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu utama"
-        return
-    fi
-    
-    # Source Rust environment untuk memastikan cargo tersedia
-    source "$HOME/.cargo/env"
-    
-    echo -e "${GREEN}Step 1: Clone NockChain Repo${NC}"
-    if [ -d "nockchain" ]; then
-        echo -e "Direktori nockchain sudah ada. Masuk ke direktori..."
-        cd nockchain
-    else
-        echo -e "Menjalankan: git clone https://github.com/zorp-corp/nockchain"
+    case $choice in
+      1)
+        read -p "Enter the path to nockchain directory: " nockpath
+        if [ -d "$nockpath" ]; then
+          cd "$nockpath"
+          if [ -f "Makefile" ] && [ -d ".git" ]; then
+            echo -e "${GREEN}Successfully changed to nockchain directory.${NC}"
+            return 0
+          else
+            echo -e "${RED}The specified directory does not appear to be a nockchain repository.${NC}"
+            sleep 2
+            return 1
+          fi
+        else
+          echo -e "${RED}Directory does not exist.${NC}"
+          sleep 2
+          return 1
+        fi
+        ;;
+      2)
+        echo -e "${YELLOW}Cloning nockchain repository...${NC}"
         git clone https://github.com/zorp-corp/nockchain
-        cd nockchain
-    fi
-    
-    echo -e "\n${GREEN}Step 2: Install Choo (Jock/Hoon Compiler)${NC}"
-    echo -e "Menjalankan: make install-choo"
-    make install-choo
-    
-    echo -e "\n${GREEN}Step 3: Build (Proses ini mungkin memakan waktu lebih dari 15 menit)${NC}"
-    echo -e "Menjalankan: make build-hoon-all"
-    make build-hoon-all
-    
-    echo -e "Menjalankan: make build"
-    make build
-    
-    echo -e "\n${GREEN}Nockchain berhasil diinstall!${NC}"
-    read -p "Tekan ENTER untuk kembali ke menu utama"
+        if [ $? -eq 0 ]; then
+          echo -e "${GREEN}Repository cloned successfully!${NC}"
+          cd nockchain
+          return 0
+        else
+          echo -e "${RED}Failed to clone repository.${NC}"
+          sleep 2
+          return 1
+        fi
+        ;;
+      3)
+        return 1
+        ;;
+      *)
+        echo -e "${RED}Invalid option.${NC}"
+        sleep 2
+        return 1
+        ;;
+    esac
+  fi
+  return 0
 }
 
-# Fungsi untuk membuat wallet
-setup_wallet() {
-    print_header
-    echo -e "${YELLOW}Membuat wallet Nockchain...${NC}"
+# Set necessary environment variables
+set_environment() {
+  echo -e "${BLUE}Setting environment variables...${NC}"
+  
+  # Check if target/release exists
+  if [ ! -d "target/release" ]; then
+    echo -e "${YELLOW}Warning: target/release directory does not exist.${NC}"
+    echo -e "${YELLOW}This usually means Nockchain hasn't been built yet.${NC}"
     
-    # Pastikan kita berada di direktori nockchain
-    if [ ! -d "nockchain" ]; then
-        echo -e "${RED}Direktori nockchain tidak ditemukan. Install Nockchain terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu utama"
-        return
+    # Still set the path for future use
+    export PATH="$PATH:$(pwd)/target/release"
+    echo -e "${YELLOW}PATH set, but build may be required for commands to work.${NC}"
+    return
+  fi
+  
+  # Set Cargo environment if available
+  if [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
+    echo -e "${GREEN}Cargo environment loaded.${NC}"
+  fi
+  
+  # Add target/release to PATH
+  export PATH="$PATH:$(pwd)/target/release"
+  
+  echo -e "${GREEN}Environment variables set successfully!${NC}"
+  echo -e "${YELLOW}PATH now includes: $(pwd)/target/release${NC}"
+  echo -e "${CYAN}To make this permanent, add to your .bashrc:${NC}"
+  echo -e "echo 'export PATH=\"\$PATH:$(pwd)/target/release\"' >> ~/.bashrc"
+}
+
+# Display wallet status if available
+check_wallet_status() {
+  if command -v wallet &> /dev/null; then
+    echo -e "${CYAN}Checking wallet status...${NC}"
+    wallet --nockchain-socket ./test-leader/nockchain.sock balance 2>/dev/null
+    if [ $? -ne 0 ]; then
+      echo -e "${YELLOW}Wallet exists but cannot connect to nockchain socket.${NC}"
+      echo -e "${YELLOW}Is your leader node running?${NC}"
     fi
-    
+  else
+    echo -e "${YELLOW}Wallet command not found. You need to build Nockchain first.${NC}"
+  fi
+}
+
+# Check if screens are running
+check_screens() {
+  leader_screen=$(screen -ls | grep leader)
+  follower_screen=$(screen -ls | grep follower)
+  
+  echo -e "${CYAN}===== NODE STATUS =====${NC}"
+  if [[ -n "$leader_screen" ]]; then
+    echo -e "${GREEN}Leader node is running.${NC}"
+  else
+    echo -e "${RED}Leader node is NOT running.${NC}"
+  fi
+  
+  if [[ -n "$follower_screen" ]]; then
+    echo -e "${GREEN}Follower node (miner) is running.${NC}"
+  else
+    echo -e "${RED}Follower node (miner) is NOT running.${NC}"
+  fi
+}
+
+# Install dependencies
+install_dependencies() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== INSTALLING DEPENDENCIES =====${NC}"
+  
+  echo -e "${YELLOW}Updating packages...${NC}"
+  sudo apt-get update && sudo apt-get upgrade -y
+  
+  echo -e "${YELLOW}Installing required packages...${NC}"
+  sudo apt install curl iptables build-essential git wget lz4 jq make gcc nano automake autoconf tmux htop nvme-cli libgbm1 pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev -y
+  
+  echo -e "${YELLOW}Installing Rust...${NC}"
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  source $HOME/.cargo/env
+  
+  echo -e "${YELLOW}Installing Docker...${NC}"
+  sudo apt update -y && sudo apt upgrade -y
+  for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done
+  
+  sudo apt-get update
+  sudo apt-get install ca-certificates curl gnupg -y
+  sudo install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  sudo chmod a+r /etc/apt/keyrings/docker.gpg
+  
+  echo \
+    "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  
+  sudo apt update -y && sudo apt upgrade -y
+  
+  sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+  
+  echo -e "${YELLOW}Testing Docker...${NC}"
+  sudo docker run hello-world
+  
+  sudo systemctl enable docker
+  sudo systemctl restart docker
+  
+  echo -e "${GREEN}Dependencies installed successfully!${NC}"
+  echo -e "${YELLOW}IMPORTANT: To ensure PATH is correctly set, please run:${NC}"
+  echo -e "${CYAN}source \$HOME/.cargo/env${NC}"
+  
+  # Automatically set the PATH
+  set_environment
+  
+  read -p "Press Enter to continue..."
+  main_menu
+}
+
+# Clone repository
+clone_repository() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== CLONING NOCKCHAIN REPOSITORY =====${NC}"
+  
+  # Check if we are already in a nockchain directory
+  if [ -d ".git" ] && grep -q "nockchain" .git/config 2>/dev/null; then
+    echo -e "${YELLOW}You appear to already be in a nockchain repository.${NC}"
+    read -p "Do you want to re-clone the repository? (y/n): " answer
+    if [[ "$answer" != "y" ]]; then
+      main_menu
+      return
+    fi
+    # If yes, move up one directory
+    cd ..
+  fi
+  
+  git clone https://github.com/zorp-corp/nockchain
+  
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Repository cloned successfully!${NC}"
     cd nockchain
     
-    # Source Rust environment untuk memastikan wallet command tersedia
-    source "$HOME/.cargo/env"
+    # Set environment after changing directory
+    set_environment
+  else
+    echo -e "${RED}Failed to clone repository.${NC}"
+  fi
+  
+  read -p "Press Enter to continue..."
+  main_menu
+}
+
+# Install Choo
+install_choo() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== INSTALLING CHOO (JOCK/HOON COMPILER) =====${NC}"
+  
+  check_directory
+  
+  make install-choo
+  
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Choo installed successfully!${NC}"
+  else
+    echo -e "${RED}Failed to install Choo.${NC}"
+  fi
+  
+  read -p "Press Enter to continue..."
+  main_menu
+}
+
+# Build Nockchain
+build_nockchain() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== BUILDING NOCKCHAIN =====${NC}"
+  
+  if ! check_directory; then
+    read -p "Press Enter to continue..."
+    main_menu
+    return
+  fi
+  
+  # Check if Rust is installed
+  if ! command -v rustc &> /dev/null; then
+    echo -e "${RED}Rust is not installed or not in PATH.${NC}"
+    echo -e "${YELLOW}Would you like to install Rust now? (y/n): ${NC}"
+    read -p "" answer
+    if [[ "$answer" == "y" ]]; then
+      echo -e "${YELLOW}Installing Rust...${NC}"
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+      source $HOME/.cargo/env
+    else
+      echo -e "${RED}Cannot build without Rust installed.${NC}"
+      read -p "Press Enter to continue..."
+      main_menu
+      return
+    fi
+  fi
+  
+  # Ensure Choo is installed
+  if [ ! -f "choo" ]; then
+    echo -e "${YELLOW}Choo compiler not found. Installing Choo first...${NC}"
+    make install-choo
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}Failed to install Choo. Cannot continue with build.${NC}"
+      read -p "Press Enter to continue..."
+      main_menu
+      return
+    fi
+  fi
+  
+  echo -e "${YELLOW}Building Hoon components (this may take 15+ minutes)...${NC}"
+  make build-hoon-all
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to build Hoon components.${NC}"
+    echo -e "${YELLOW}Would you like to continue with Rust components anyway? (y/n): ${NC}"
+    read -p "" answer
+    if [[ "$answer" != "y" ]]; then
+      read -p "Press Enter to continue..."
+      main_menu
+      return
+    fi
+  fi
+  
+  echo -e "${YELLOW}Building Rust components...${NC}"
+  make build
+  
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Nockchain built successfully!${NC}"
     
-    echo -e "${GREEN}Step 1: Set PATH${NC}"
-    echo -e "Menjalankan: export PATH=\"\$PATH:\$(pwd)/target/release\""
-    export PATH="$PATH:$(pwd)/target/release"
-    
-    echo -e "\n${GREEN}Step 2: Create wallet${NC}"
-    echo -e "Menjalankan: wallet keygen"
-    echo -e "${RED}PENTING: SIMPAN memo, private key & public key wallet Anda!${NC}"
-    read -p "Tekan ENTER untuk membuat wallet"
-    
-    wallet_output=$(wallet keygen)
-    echo -e "$wallet_output"
-    
-    # Ekstrak public key dari output
-    pubkey=$(echo "$wallet_output" | grep -o "Public key: [^ ]*" | cut -d' ' -f3)
-    
-    echo -e "\n${YELLOW}Public key Anda: ${GREEN}$pubkey${NC}"
-    echo -e "${RED}SIMPAN INFORMASI INI DI TEMPAT YANG AMAN!${NC}"
-    
-    # Tanyakan apakah ingin mengkonfigurasi Makefile secara otomatis
-    echo ""
-    read -p "Apakah Anda ingin mengkonfigurasi Makefile dengan public key ini? (y/n): " configure_makefile
-    
-    if [[ "$configure_makefile" == "y" || "$configure_makefile" == "Y" ]]; then
-        echo -e "\n${GREEN}Mengkonfigurasi Makefile...${NC}"
-        # Backup Makefile asli
-        cp Makefile Makefile.backup
-        
-        # Update public key di Makefile
-        sed -i "s/MINING_PUBKEY := .*/MINING_PUBKEY := $pubkey/" Makefile
-        
-        echo -e "Makefile berhasil dikonfigurasi dengan public key Anda."
+    # Verify the build produced the expected files
+    if [ -f "target/release/wallet" ] && [ -f "target/release/nockchain" ]; then
+      echo -e "${GREEN}Build verification passed. Required binaries found.${NC}"
+    else
+      echo -e "${YELLOW}Warning: Expected binaries not found in target/release. The build may not be complete.${NC}"
     fi
     
-    read -p "Tekan ENTER untuk kembali ke menu utama"
-}
-
-# Fungsi untuk menjalankan node
-run_nodes() {
-    print_header
-    echo -e "${YELLOW}Menu Menjalankan Node:${NC}"
-    echo -e "1. Run Leader Node (Testnet Node)"
-    echo -e "2. Run Follower Node (Miner Node)"
-    echo -e "3. Cek Status Node"
-    echo -e "4. Cek Balance Wallet"
-    echo -e "5. Kembali ke Menu Utama"
-    echo ""
-    read -p "Pilih opsi: " node_option
+    # Set environment after build
+    set_environment
     
-    case $node_option in
-        1)
-            run_leader_node
-            ;;
-        2)
-            run_follower_node
-            ;;
-        3)
-            check_node_status
-            ;;
-        4)
-            check_wallet_balance
-            ;;
-        5)
-            return
-            ;;
-        *)
-            echo -e "${RED}Opsi tidak valid!${NC}"
-            sleep 2
-            run_nodes
-            ;;
-    esac
+    # Create a file to remember that the build was completed
+    touch .build_completed
+  else
+    echo -e "${RED}Failed to build Nockchain.${NC}"
+    echo -e "${YELLOW}Common build issues:${NC}"
+    echo -e "1. Insufficient memory (need at least 4GB RAM)"
+    echo -e "2. Missing dependencies"
+    echo -e "3. Disk space issues"
+  fi
+  
+  read -p "Press Enter to continue..."
+  main_menu
 }
 
-# Fungsi untuk menjalankan leader node
+# Setup wallet
+setup_wallet() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== WALLET SETUP =====${NC}"
+  
+  if ! check_directory; then
+    read -p "Press Enter to continue..."
+    main_menu
+    return
+  fi
+  
+  # Set environment to ensure wallet command is available
+  set_environment
+  
+  # Check if wallet command is available
+  if ! command -v wallet &> /dev/null; then
+    echo -e "${RED}Error: 'wallet' command not found.${NC}"
+    echo -e "${YELLOW}Make sure you have built Nockchain first.${NC}"
+    echo -e "${YELLOW}Would you like to try building Nockchain now? (y/n): ${NC}"
+    read -p "" answer
+    if [[ "$answer" == "y" ]]; then
+      build_nockchain
+      return
+    else
+      read -p "Press Enter to continue..."
+      main_menu
+      return
+    fi
+  fi
+  
+  echo -e "${YELLOW}Generating wallet keys...${NC}"
+  wallet keygen
+  
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Wallet setup complete!${NC}"
+    echo -e "${YELLOW}IMPORTANT: Save your memo, private key & public key shown above!${NC}"
+    echo -e "${YELLOW}After any terminal restart, run these commands before using wallet:${NC}"
+    echo -e "${CYAN}cd $(pwd)${NC}"
+    echo -e "${CYAN}export PATH=\"\$PATH:$(pwd)/target/release\"${NC}"
+  else
+    echo -e "${RED}Error generating wallet keys.${NC}"
+    echo -e "${YELLOW}This could be due to target/release directory not being created yet.${NC}"
+    echo -e "${YELLOW}Make sure you've completed the build step before setting up the wallet.${NC}"
+  fi
+  
+  read -p "Press Enter to continue..."
+  wallet_menu
+}
+
+# Configure nodes
+configure_nodes() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== CONFIGURE NODES =====${NC}"
+  
+  check_directory
+  
+  echo -e "${YELLOW}Current Makefile configuration:${NC}"
+  grep "MINING_PUBKEY" Makefile
+  echo ""
+  
+  read -p "Enter your wallet public key: " pubkey
+  
+  if [[ -n "$pubkey" ]]; then
+    # Create a backup of the original Makefile
+    cp Makefile Makefile.bak
+    
+    # Use sed to replace the MINING_PUBKEY value
+    sed -i "s/MINING_PUBKEY=.*/MINING_PUBKEY=$pubkey/" Makefile
+    
+    echo -e "${GREEN}Nodes configured successfully!${NC}"
+    echo -e "${YELLOW}Your mining public key has been set to: ${pubkey}${NC}"
+  else
+    echo -e "${RED}No public key provided. Nodes configuration unchanged.${NC}"
+  fi
+  
+  read -p "Press Enter to continue..."
+  main_menu
+}
+
+# Run leader node
 run_leader_node() {
-    print_header
-    echo -e "${YELLOW}Menjalankan Leader Node...${NC}"
-    
-    # Pastikan kita berada di direktori nockchain
-    cd nockchain 2>/dev/null || { 
-        echo -e "${RED}Direktori nockchain tidak ditemukan. Install Nockchain terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu"
-        run_nodes
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== RUN LEADER NODE =====${NC}"
+  
+  check_directory
+  
+  # Check if screen is already running
+  if screen -ls | grep -q leader; then
+    echo -e "${YELLOW}Leader node screen is already running.${NC}"
+    read -p "Do you want to reconnect to it? (y/n): " answer
+    if [[ "$answer" == "y" ]]; then
+      screen -r leader
+      main_menu
+      return
+    else
+      read -p "Do you want to stop the current leader node and start a new one? (y/n): " answer
+      if [[ "$answer" == "y" ]]; then
+        screen -S leader -X quit
+      else
+        main_menu
         return
-    }
-    
-    # Source Rust environment
-    source "$HOME/.cargo/env"
-    
-    echo -e "${GREEN}Memulai Leader Node dalam screen...${NC}"
-    echo -e "${YELLOW}Untuk melihat log: ${GREEN}screen -r leader${NC}"
-    echo -e "${YELLOW}Untuk keluar dari screen: ${GREEN}Ctrl+A+D${NC}"
-    
-    # Cek apakah screen leader sudah ada
-    if screen -list | grep -q "leader"; then
-        echo -e "${YELLOW}Screen leader sudah berjalan. Menghentikan screen yang lama...${NC}"
-        screen -XS leader quit
+      fi
     fi
-    
-    # Jalankan leader node dalam screen baru
-    screen -dmS leader bash -c "cd $(pwd) && source $HOME/.cargo/env && make run-nockchain-leader; exec bash"
-    
-    echo -e "${GREEN}Leader Node berhasil dijalankan dalam screen dengan nama 'leader'${NC}"
-    read -p "Tekan ENTER untuk kembali ke menu"
-    run_nodes
+  fi
+  
+  echo -e "${YELLOW}Starting leader node in a new screen session...${NC}"
+  echo -e "${YELLOW}To detach from the screen: Press Ctrl+A then D${NC}"
+  echo -e "${YELLOW}Starting in 3 seconds...${NC}"
+  sleep 3
+  
+  # Set environment before starting node
+  set_environment
+  
+  screen -dmS leader bash -c "cd $(pwd) && make run-nockchain-leader; exec bash"
+  
+  echo -e "${GREEN}Leader node started in screen session 'leader'${NC}"
+  echo -e "${YELLOW}To view the node logs later, run: screen -r leader${NC}"
+  
+  read -p "Press Enter to continue..."
+  main_menu
 }
 
-# Fungsi untuk menjalankan follower node
+# Run follower node
 run_follower_node() {
-    print_header
-    echo -e "${YELLOW}Menjalankan Follower Node...${NC}"
-    
-    # Pastikan kita berada di direktori nockchain
-    cd nockchain 2>/dev/null || { 
-        echo -e "${RED}Direktori nockchain tidak ditemukan. Install Nockchain terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu"
-        run_nodes
-        return
-    }
-    
-    # Source Rust environment
-    source "$HOME/.cargo/env"
-    
-    # Periksa apakah leader node sudah berjalan
-    if ! screen -list | grep -q "leader"; then
-        echo -e "${RED}Leader Node belum dijalankan. Jalankan Leader Node terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu"
-        run_nodes
-        return
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== RUN FOLLOWER NODE (MINER) =====${NC}"
+  
+  check_directory
+  
+  # Check if leader is running first
+  if ! screen -ls | grep -q leader; then
+    echo -e "${RED}Leader node does not appear to be running.${NC}"
+    echo -e "${YELLOW}It is recommended to start the leader node first.${NC}"
+    read -p "Do you want to continue anyway? (y/n): " answer
+    if [[ "$answer" != "y" ]]; then
+      main_menu
+      return
     fi
-    
-    echo -e "${GREEN}Memulai Follower Node dalam screen...${NC}"
-    echo -e "${YELLOW}Untuk melihat log: ${GREEN}screen -r follower${NC}"
-    echo -e "${YELLOW}Untuk keluar dari screen: ${GREEN}Ctrl+A+D${NC}"
-    
-    # Cek apakah screen follower sudah ada
-    if screen -list | grep -q "follower"; then
-        echo -e "${YELLOW}Screen follower sudah berjalan. Menghentikan screen yang lama...${NC}"
-        screen -XS follower quit
-    fi
-    
-    # Jalankan follower node dalam screen baru
-    screen -dmS follower bash -c "cd $(pwd) && source $HOME/.cargo/env && make run-nockchain-follower; exec bash"
-    
-    echo -e "${GREEN}Follower Node berhasil dijalankan dalam screen dengan nama 'follower'${NC}"
-    read -p "Tekan ENTER untuk kembali ke menu"
-    run_nodes
-}
-
-# Fungsi untuk mengecek status node
-check_node_status() {
-    print_header
-    echo -e "${YELLOW}Status Node:${NC}"
-    
-    # Cek screen yang berjalan
-    screen_output=$(screen -list)
-    
-    echo -e "${GREEN}Daftar Screen yang Berjalan:${NC}"
-    echo -e "$screen_output"
-    echo ""
-    
-    # Cek status leader node
-    if echo "$screen_output" | grep -q "leader"; then
-        echo -e "Leader Node: ${GREEN}RUNNING${NC}"
+  fi
+  
+  # Check if screen is already running
+  if screen -ls | grep -q follower; then
+    echo -e "${YELLOW}Follower node screen is already running.${NC}"
+    read -p "Do you want to reconnect to it? (y/n): " answer
+    if [[ "$answer" == "y" ]]; then
+      screen -r follower
+      main_menu
+      return
     else
-        echo -e "Leader Node: ${RED}STOPPED${NC}"
+      read -p "Do you want to stop the current follower node and start a new one? (y/n): " answer
+      if [[ "$answer" == "y" ]]; then
+        screen -S follower -X quit
+      else
+        main_menu
+        return
+      fi
     fi
-    
-    # Cek status follower node
-    if echo "$screen_output" | grep -q "follower"; then
-        echo -e "Follower Node: ${GREEN}RUNNING${NC}"
-    else
-        echo -e "Follower Node: ${RED}STOPPED${NC}"
-    fi
-    
-    read -p "Tekan ENTER untuk kembali ke menu"
-    run_nodes
+  fi
+  
+  echo -e "${YELLOW}Starting follower node (miner) in a new screen session...${NC}"
+  echo -e "${YELLOW}To detach from the screen: Press Ctrl+A then D${NC}"
+  echo -e "${YELLOW}Starting in 3 seconds...${NC}"
+  sleep 3
+  
+  # Set environment before starting node
+  set_environment
+  
+  screen -dmS follower bash -c "cd $(pwd) && make run-nockchain-follower; exec bash"
+  
+  echo -e "${GREEN}Follower node started in screen session 'follower'${NC}"
+  echo -e "${YELLOW}To view the node logs later, run: screen -r follower${NC}"
+  
+  read -p "Press Enter to continue..."
+  main_menu
 }
 
-# Fungsi untuk mengecek balance wallet
-check_wallet_balance() {
-    print_header
-    echo -e "${YELLOW}Mengecek Balance Wallet...${NC}"
-    
-    # Pastikan kita berada di direktori nockchain
-    cd nockchain 2>/dev/null || { 
-        echo -e "${RED}Direktori nockchain tidak ditemukan. Install Nockchain terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu"
-        run_nodes
-        return
-    }
-    
-    # Source Rust environment
-    source "$HOME/.cargo/env"
-    
-    # Set PATH
-    export PATH="$PATH:$(pwd)/target/release"
-    
-    # Periksa apakah leader node sudah berjalan
-    if ! screen -list | grep -q "leader"; then
-        echo -e "${RED}Leader Node belum dijalankan. Jalankan Leader Node terlebih dahulu.${NC}"
-        read -p "Tekan ENTER untuk kembali ke menu"
-        run_nodes
-        return
-    fi
-    
-    echo -e "Menjalankan: wallet --nockchain-socket ./test-leader/nockchain.sock balance"
-    wallet_balance=$(wallet --nockchain-socket ./test-leader/nockchain.sock balance 2>&1)
-    
-    echo -e "\n${GREEN}Balance Wallet:${NC}"
-    echo -e "$wallet_balance"
-    echo -e "\nCatatan: ~ berarti 0, balance akan 0 sampai Anda berhasil mine block."
-    
-    read -p "Tekan ENTER untuk kembali ke menu"
-    run_nodes
+# Check nodes status
+check_nodes_status() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== NODES STATUS =====${NC}"
+  
+  check_screens
+  
+  echo -e "\n${CYAN}Wallet Status:${NC}"
+  check_wallet_status
+  
+  read -p "Press Enter to continue..."
+  main_menu
 }
 
-# Menu utama
-main_menu() {
-    while true; do
-        print_header
-        echo -e "${YELLOW}MENU UTAMA:${NC}"
-        echo -e "1. Informasi Nockchain"
-        echo -e "2. Cek Dependensi"
-        echo -e "3. Install Dependensi"
-        echo -e "4. Install Nockchain"
-        echo -e "5. Setup Wallet"
-        echo -e "6. Jalankan/Kelola Node"
-        echo -e "7. Keluar"
-        echo ""
-        read -p "Pilih opsi: " option
+# Wallet menu
+wallet_menu() {
+  clear
+  show_ascii_art
+  
+  echo -e "${CYAN}===== NOCKCHAIN WALLET MENU =====${NC}"
+  echo -e "${YELLOW}Current directory: $(pwd)${NC}"
+  check_wallet_status
+  
+  echo ""
+  echo -e "${CYAN}1.${NC} Generate New Key Pair"
+  echo -e "${CYAN}2.${NC} Check Wallet Balance"
+  echo -e "${CYAN}3.${NC} List All Notes"
+  echo -e "${CYAN}4.${NC} Import Private Key"
+  echo -e "${CYAN}5.${NC} Generate Master Key from Seed Phrase"
+  echo -e "${CYAN}6.${NC} Create Transaction Draft"
+  echo -e "${CYAN}7.${NC} Make and Sign Transaction"
+  echo -e "${CYAN}8.${NC} Advanced Wallet Commands"
+  echo -e "${CYAN}9.${NC} Return to Main Menu"
+  echo ""
+  
+  read -p "Enter your choice [1-9]: " choice
+  
+  case $choice in
+    1)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== GENERATE NEW KEY PAIR =====${NC}"
+      set_environment
+      wallet keygen
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    2)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== CHECK WALLET BALANCE =====${NC}"
+      set_environment
+      wallet --nockchain-socket ./test-leader/nockchain.sock balance
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    3)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== LIST ALL NOTES =====${NC}"
+      set_environment
+      wallet list-notes
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    4)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== IMPORT PRIVATE KEY =====${NC}"
+      set_environment
+      read -p "Enter path to keys.jam file: " keypath
+      if [[ -n "$keypath" ]]; then
+        wallet import-keys --input "$keypath"
+      else
+        echo -e "${RED}No file path provided.${NC}"
+      fi
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    5)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== GENERATE MASTER KEY FROM SEED PHRASE =====${NC}"
+      set_environment
+      read -p "Enter your seed phrase: " seedphrase
+      if [[ -n "$seedphrase" ]]; then
+        wallet gen-master-privkey --seedphrase "$seedphrase"
+      else
+        echo -e "${RED}No seed phrase provided.${NC}"
+      fi
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    6)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== CREATE TRANSACTION DRAFT =====${NC}"
+      set_environment
+      echo -e "${YELLOW}This will create a simple transaction draft.${NC}"
+      read -p "Enter recipient public key: " recipient
+      read -p "Enter amount to send: " amount
+      read -p "Enter transaction fee: " fee
+      
+      if [[ -n "$recipient" && -n "$amount" ]]; then
+        wallet simple-spend \
+          --recipients "[$amount $recipient]" \
+          --gifts "$amount" \
+          --fee "${fee:-10}"
+      else
+        echo -e "${RED}Missing required information.${NC}"
+      fi
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    7)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== MAKE AND SIGN TRANSACTION =====${NC}"
+      set_environment
+      
+      echo -e "${YELLOW}Available drafts:${NC}"
+      ls -la ./drafts/ 2>/dev/null
+      
+      read -p "Enter draft filename: " draftname
+      if [[ -n "$draftname" ]]; then
+        echo -e "${YELLOW}Signing transaction...${NC}"
+        wallet sign-tx --draft "./drafts/$draftname"
         
-        case $option in
-            1)
-                show_info
-                ;;
-            2)
-                check_dependencies
-                read -p "Tekan ENTER untuk kembali ke menu utama"
-                ;;
-            3)
-                install_dependencies
-                ;;
-            4)
-                install_nockchain
-                ;;
-            5)
-                setup_wallet
-                ;;
-            6)
-                run_nodes
-                ;;
-            7)
-                echo -e "${GREEN}Terima kasih telah menggunakan Nockchain Installer!${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}Opsi tidak valid!${NC}"
-                sleep 2
-                ;;
-        esac
-    done
+        echo -e "${YELLOW}Making and broadcasting transaction...${NC}"
+        wallet make-tx --draft "./drafts/$draftname"
+      else
+        echo -e "${RED}No draft filename provided.${NC}"
+      fi
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    8)
+      clear
+      show_ascii_art
+      echo -e "${CYAN}===== ADVANCED WALLET COMMANDS =====${NC}"
+      
+      echo -e "${YELLOW}Enter a custom wallet command to execute:${NC}"
+      echo -e "${CYAN}Example: wallet --nockchain-socket ./test-leader/nockchain.sock list-notes-by-pubkey --pubkey <public-key>${NC}"
+      
+      read -p "Command: " cmd
+      
+      if [[ -n "$cmd" ]]; then
+        set_environment
+        eval "$cmd"
+      else
+        echo -e "${RED}No command provided.${NC}"
+      fi
+      
+      read -p "Press Enter to continue..."
+      wallet_menu
+      ;;
+    9)
+      main_menu
+      ;;
+    *)
+      echo -e "${RED}Invalid option. Please try again.${NC}"
+      sleep 2
+      wallet_menu
+      ;;
+  esac
 }
 
-# Mulai program
-main_menu
+# Main menu
+main_menu() {
+  clear
+  show_ascii_art
+  
+  echo -e "${CYAN}===== NOCKCHAIN SETUP INTERFACE =====${NC}"
+  echo -e "${YELLOW}Current directory: $(pwd)${NC}"
+  check_screens
+  
+  echo ""
+  echo -e "${CYAN}1.${NC} Install Dependencies"
+  echo -e "${CYAN}2.${NC} Clone Nockchain Repository"
+  echo -e "${CYAN}3.${NC} Install Choo (Jock/Hoon Compiler)"
+  echo -e "${CYAN}4.${NC} Build Nockchain"
+  echo -e "${CYAN}5.${NC} Setup Wallet"
+  echo -e "${CYAN}6.${NC} Configure Nodes"
+  echo -e "${CYAN}7.${NC} Run Leader Node"
+  echo -e "${CYAN}8.${NC} Run Follower Node (Miner)"
+  echo -e "${CYAN}9.${NC} Check Nodes Status"
+  echo -e "${CYAN}10.${NC} Wallet Management"
+  echo -e "${CYAN}11.${NC} Exit"
+  echo ""
+  
+  read -p "Enter your choice [1-11]: " choice
+  
+  case $choice in
+    1) install_dependencies ;;
+    2) clone_repository ;;
+    3) install_choo ;;
+    4) build_nockchain ;;
+    5) setup_wallet ;;
+    6) configure_nodes ;;
+    7) run_leader_node ;;
+    8) run_follower_node ;;
+    9) check_nodes_status ;;
+    10) wallet_menu ;;
+    11) 
+      clear
+      show_ascii_art
+      echo -e "${GREEN}Thank you for using the Nockchain Setup Interface!${NC}"
+      echo -e "${YELLOW}Exiting...${NC}"
+      exit 0
+      ;;
+    *) 
+      echo -e "${RED}Invalid option. Please try again.${NC}"
+      sleep 2
+      main_menu
+      ;;
+  esac
+}
+
+# Function to check for nockchain installation and initialize if needed
+initialize_script() {
+  clear
+  show_ascii_art
+  echo -e "${CYAN}===== NOCKCHAIN SETUP WIZARD =====${NC}"
+  
+  # Check if we're in a nockchain directory
+  if [ -f "Makefile" ] && [ -d ".git" ] && grep -q "nockchain" .git/config 2>/dev/null; then
+    echo -e "${GREEN}Detected Nockchain repository at: $(pwd)${NC}"
+    
+    # Check if Nockchain is already built
+    if check_nockchain_installed; then
+      echo -e "${GREEN}Nockchain appears to be already installed!${NC}"
+      echo -e "${YELLOW}Found binaries in target/release directory.${NC}"
+    else
+      echo -e "${YELLOW}Nockchain repository found but not fully built yet.${NC}"
+      echo -e "${YELLOW}You'll need to build Nockchain before using it.${NC}"
+    fi
+    
+    read -p "Press Enter to continue to main menu..."
+    main_menu
+    return
+  fi
+  
+  echo -e "${YELLOW}Nockchain repository not detected in the current directory.${NC}"
+  echo -e "${CYAN}Current directory: $(pwd)${NC}"
+  echo -e "${YELLOW}How would you like to proceed?${NC}"
+  echo -e "${CYAN}1.${NC} Find existing Nockchain directory"
+  echo -e "${CYAN}2.${NC} Clone Nockchain repository here"
+  echo -e "${CYAN}3.${NC} Continue to main menu anyway"
+  
+  read -p "Enter your choice [1-3]: " choice
+  
+  case $choice in
+    1)
+      read -p "Enter the path to existing Nockchain directory: " nockpath
+      if [ -d "$nockpath" ]; then
+        cd "$nockpath"
+        if [ -f "Makefile" ] && [ -d ".git" ]; then
+          echo -e "${GREEN}Successfully changed to Nockchain directory.${NC}"
+          # Check if already built
+          if check_nockchain_installed; then
+            echo -e "${GREEN}Nockchain appears to be already installed!${NC}"
+          else
+            echo -e "${YELLOW}Nockchain repository found but not fully built yet.${NC}"
+          fi
+          read -p "Press Enter to continue..."
+          main_menu
+        else
+          echo -e "${RED}The specified directory does not appear to be a Nockchain repository.${NC}"
+          read -p "Press Enter to continue anyway..."
+          main_menu
+        fi
+      else
+        echo -e "${RED}Directory does not exist.${NC}"
+        read -p "Press Enter to continue to main menu..."
+        main_menu
+      fi
+      ;;
+    2)
+      echo -e "${YELLOW}Cloning Nockchain repository...${NC}"
+      git clone https://github.com/zorp-corp/nockchain
+      if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Repository cloned successfully!${NC}"
+        cd nockchain
+        read -p "Press Enter to continue..."
+        main_menu
+      else
+        echo -e "${RED}Failed to clone repository.${NC}"
+        read -p "Press Enter to continue to main menu..."
+        main_menu
+      fi
+      ;;
+    3)
+      echo -e "${YELLOW}Continuing to main menu without Nockchain repository...${NC}"
+      echo -e "${YELLOW}Some functions may not work until you clone or navigate to the repository.${NC}"
+      read -p "Press Enter to continue..."
+      main_menu
+      ;;
+    *)
+      echo -e "${RED}Invalid option. Continuing to main menu...${NC}"
+      sleep 2
+      main_menu
+      ;;
+  esac
+}
+
+# Start the script
+initialize_script
